@@ -1,36 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tax Calculator</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>UK Biz Tax Estimator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    label, input {
+      display: block;
+      margin: 8px 0;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    .output {
+      margin-top: 30px;
+      padding: 15px;
+      background: #f9f9f9;
+      border: 1px solid #ccc;
+    }
+    h2 {
+      margin-top: 30px;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Tax Calculator</h1>
-        <form id="taxForm">
-            <label for="turnover">Turnover (£):</label>
-            <input type="number" id="turnover" required><br>
+  <h1>UK Limited Company Tax Estimator (2025/26)</h1>
 
-            <label for="salary">Salary (£):</label>
-            <input type="number" id="salary" required><br>
+  <label for="turnover">Turnover (£)</label>
+  <input type="number" id="turnover" value="85000" />
 
-            <label for="expenses">Expenses (£):</label>
-            <input type="number" id="expenses" required><br>
+  <label for="salary">Director Salary (£)</label>
+  <input type="number" id="salary" value="12750" />
 
-            <button type="submit">Calculate Taxes</button>
-        </form>
+  <label for="dividends">Dividends (£)</label>
+  <input type="number" id="dividends" value="40000" />
 
-        <div id="results" class="results">
-            <h2>Tax Breakdown</h2>
-            <p id="corporationTax">Corporation Tax: £0</p>
-            <p id="incomeTax">Income Tax: £0</p>
-            <p id="nationalInsurance">National Insurance: £0</p>
-            <p id="dividendTax">Dividend Tax: £0</p>
-        </div>
-    </div>
+  <label for="expenses">Business Expenses (£)</label>
+  <input type="number" id="expenses" value="10000" />
 
-    <script src="script.js"></script>
+  <button onclick="calculateTax()">Calculate Tax</button>
+
+  <div class="output" id="results"></div>
+  <canvas id="taxChart" width="400" height="400" style="margin-top: 40px;"></canvas>
+
+
+<script>
+function calculateTax() {
+  const turnover = parseFloat(document.getElementById("turnover").value);
+  const salary = parseFloat(document.getElementById("salary").value);
+  const dividends = parseFloat(document.getElementById("dividends").value);
+  const expenses = parseFloat(document.getElementById("expenses").value);
+
+  const personalAllowance = 12570;
+  const dividendAllowance = 500;
+  const basicRateLimit = 50270;
+  const dividendBasicRate = 0.0875;
+  const dividendHigherRate = 0.3375;
+
+  const employeeNILimit = 12570;
+  const employerNILimit = 9100;
+  const employeeNIRate = 0.12;
+  const employerNIRate = 0.138;
+
+  const grossProfit = turnover - salary - expenses;
+
+  const corpTaxRate = 0.25;
+  const corpTax = grossProfit * corpTaxRate;
+  const postTaxProfit = grossProfit - corpTax;
+
+  const employerNI = salary > employerNILimit ? (salary - employerNILimit) * employerNIRate : 0;
+  const employeeNI = salary > employeeNILimit ? (salary - employeeNILimit) * employeeNIRate : 0;
+
+  const taxableSalary = salary > personalAllowance ? salary - personalAllowance : 0;
+  const incomeTax = taxableSalary * 0.2;
+
+  let taxableDividends = dividends - Math.max(0, personalAllowance - salary) - dividendAllowance;
+  if (taxableDividends < 0) taxableDividends = 0;
+
+  const basicRateBandRemaining = basicRateLimit - salary;
+  const basicDividends = Math.min(taxableDividends, basicRateBandRemaining);
+  const higherDividends = Math.max(0, taxableDividends - basicRateBandRemaining);
+
+  const dividendTax = basicDividends * dividendBasicRate + higherDividends * dividendHigherRate;
+
+  const totalPersonalTax = incomeTax + dividendTax + employeeNI;
+  const netPersonalIncome = salary + dividends - totalPersonalTax;
+
+  const output = `
+    <h2>📊 Tax Breakdown</h2>
+    <p><strong>Company Turnover:</strong> £${turnover.toFixed(2)}</p>
+    <p><strong>Director Salary:</strong> £${salary.toFixed(2)}</p>
+    <p><strong>Dividends Taken:</strong> £${dividends.toFixed(2)}</p>
+    <p><strong>Expenses:</strong> £${expenses.toFixed(2)}</p>
+    <hr>
+    <p><strong>Gross Profit (before corp tax):</strong> £${grossProfit.toFixed(2)}</p>
+    <p><strong>Corporation Tax (25%):</strong> £${corpTax.toFixed(2)}</p>
+    <p><strong>Post-Tax Company Profit:</strong> £${postTaxProfit.toFixed(2)}</p>
+    <p><strong>Employer NI:</strong> £${employerNI.toFixed(2)}</p>
+    <hr>
+    <h2>🧍‍♂️ Personal Tax</h2>
+    <p><strong>Income Tax on Salary:</strong> £${incomeTax.toFixed(2)}</p>
+    <p><strong>Employee NI:</strong> £${employeeNI.toFixed(2)}</p>
+    <p><strong>Dividend Tax:</strong> £${dividendTax.toFixed(2)}</p>
+    <p><strong>Total Personal Tax:</strong> £${totalPersonalTax.toFixed(2)}</p>
+    <p><strong>Net Personal Income:</strong> £${netPersonalIncome.toFixed(2)}</p>
+    <hr>
+    <h2>💼 Summary</h2>
+    <p><strong>Total Company Taxes (Corp + Employer NI):</strong> £${(corpTax + employerNI).toFixed(2)}</p>
+    <p><strong>Total Tax (Company + Personal):</strong> £${(corpTax + employerNI + totalPersonalTax).toFixed(2)}</p>
+    <p><strong>Estimated Total Remaining (after all taxes):</strong> £${netPersonalIncome.toFixed(2)}</p>
+  `;
+
+  document.getElementById("results").innerHTML = output;
+
+  // --- Chart ---
+  const ctx = document.getElementById("taxChart").getContext("2d");
+  if (window.taxChart) window.taxChart.destroy(); // destroy old chart if it exists
+
+  window.taxChart = new Chart(ctx, {
+    type: "pie",
+    data: {
+      labels: [
+        "Corporation Tax",
+        "Employer NI",
+        "Employee NI",
+        "Income Tax",
+        "Dividend Tax",
+        "Net Personal Income"
+      ],
+      datasets: [{
+        data: [
+          corpTax,
+          employerNI,
+          employeeNI,
+          incomeTax,
+          dividendTax,
+          netPersonalIncome
+        ],
+        backgroundColor: [
+          "#e74c3c",
+          "#c0392b",
+          "#2980b9",
+          "#8e44ad",
+          "#f39c12",
+          "#27ae60"
+        ]
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: "bottom"
+        },
+        title: {
+          display: true,
+          text: "Tax Breakdown & Net Income"
+        }
+      }
+    }
+  });
+}
+</script>
 </body>
 </html>
